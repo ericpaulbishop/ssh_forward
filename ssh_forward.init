@@ -1,0 +1,51 @@
+#!/bin/bash
+
+### BEGIN INIT INFO
+# Provides: ssh_forward
+# Required-Start: $local_fs $remote_fs $network $named 
+# Required-Stop: $local_fs $remote_fs $network $named 
+# Should-Start: $time
+# Default-Start: 2 3 4 5
+# Default-Stop:
+# Short-Description: ssh_forward
+# Description: ssh_forward
+### END INIT INFO
+
+
+PID_BASE=/var/run/ssh_forward
+CONF_DIR=/etc/ssh_forward
+
+#ssh -o StrictHostKeyChecking=no -o PubkeyAuthentication=yes -o BatchMode=yes
+
+do_start()
+{
+	do_stop
+	
+	IFS_ORIG="$IFS"
+	IFS_LINEBREAK="$(printf '\n\r')"
+	IFS="$IFS_LINEBREAK"
+
+	config_lines=$(cat "$CONF_DIR"/*.conf 2>/dev/null | sed 's/^[\t ]*//g'| sed 's/#.*$//g' | egrep "^[DRFdrf]"  |  awk '{ if ( NF >= 4 ) { print $0  }  }')
+	for line in $config_lines ; do
+		is_d=$( echo "$line" | egrep "^[Dd]")
+		is_r=$( echo "$line" | egrep "^[Ff]")
+		is_f=$( echo "$line" | egrep "^[Rr]")
+
+	done
+
+
+	IFS="$IFS_ORIG"
+
+}
+
+do_stop()
+{
+	for pidf in ${PID_BASE}* ; do
+		pid=$(cat "$pidf" 2>/dev/null)
+		if [ -n "$pid" ] ; then
+			kill $pid
+		fi
+	done
+}
+
+
