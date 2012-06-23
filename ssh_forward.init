@@ -14,6 +14,7 @@
 NAME=ssh_forward
 PID_BASE=/var/run/ssh_forward
 CONF_DIR=/etc/ssh_forward
+BIN=/usr/bin/autossh
 
 
 do_start()
@@ -30,19 +31,21 @@ do_start()
 		is_l=$( echo "$line" | egrep "^[Ll]")
 		is_r=$( echo "$line" | egrep "^[Rr]")
 		is_d=$( echo "$line" | egrep "^[Dd]")
-		pid_file="$PID_BASE_${pidnum}.pid"
+		pid_file="${PID_BASE}_${pidnum}.pid"
 		
 		cmd=""
 		if [ -n "$is_l" ] ; then
-			cmd=$( echo "$line" | awk ' { if ( NF >4 ) { print "AUTOSSH_PIDFILE=\"$pid_file\" autossh -f -2 -A -o StrictHostKeyChecking=no -o PubkeyAuthentication=yes -o BatchMode=yes -L "$4":"$3"@"$2":"$5" 127.0.0.1"   } else { print "AUTOSSH_PIDFILE="$pid_file" autossh -f -2 -A -o StrictHostKeyChecking=no -o PubkeyAuthentication=yes -o BatchMode=yes -L "$4":"$3"@"$2":"$4" 127.0.0.1"  } ; } ' )
+			cmd=$( echo "$line" | awk ' { if ( NF >4 ) { print " -L "$4":"$3"@"$2":"$5" 127.0.0.1"   } else { print " -L "$4":"$3"@"$2":"$4" 127.0.0.1"  } ; } ' )
 		elif [ -n "$is_r" ] ; then
-			cmd=$( echo "$line" | awk ' { if ( NF >4 ) { print "AUTOSSH_PIDFILE=\"$pid_file\" autossh -f -2 -A -o StrictHostKeyChecking=no -o PubkeyAuthentication=yes -o BatchMode=yes -R "$5":127.0.0.1:"$4" "$3"@"$2   } else { print "AUTOSSH_PIDFILE="$pid_file" autossh -f -2 -A -o StrictHostKeyChecking=no -o PubkeyAuthentication=yes -o BatchMode=yes -R "$4":127.0.0.1:"$4" "$3"@"$2   } ; } ' )
+			cmd=$( echo "$line" | awk ' { if ( NF >4 ) { print " -R "$5":127.0.0.1:"$4" "$3"@"$2   } else { print " -R "$4":127.0.0.1:"$4" "$3"@"$2   } ; } ' )
 		elif [ -n "$is_d" ] ; then
-			cmd=$( echo "$line" | awk ' { print "AUTOSSH_PIDFILE=\"$pid_file\" autossh -f -2 -A -o StrictHostKeyChecking=no -o PubkeyAuthentication=yes -o BatchMode=yes -D "$4" "$3"@"$2   } 
+			cmd=$( echo "$line" | awk ' { print " -D "$4" "$3"@"$2  ; } ' ) 
 		fi
 
 		if [ -n "$cmd" ] ; then
-			$cmd
+			echo "AUTOSSH_PIDFILE=\"$pid_file\"" "$BIN" -f -N -2 -o StrictHostKeyChecking=no -o PubkeyAuthentication=yes -o BatchMode=yes "$cmd"
+
+			AUTOSSH_PIDFILE="$pid_file" $BIN -f -N -2 -o StrictHostKeyChecking=no -o PubkeyAuthentication=yes -o BatchMode=yes -o IdentityFile="/root/.ssh/id_rsa" $cmd
 			pidnum=$(( $pidnum + 1 ))
 		fi
 
@@ -58,9 +61,17 @@ do_stop()
 	for pidf in ${PID_BASE}*.pid ; do
 		pid=$(cat "$pidf" 2>/dev/null)
 		if [ -n "$pid" ] ; then
-			kill $pid
+			kill $pid 2>/dev/null
 		fi
 	done
+	sleep 2
+	for pidf in ${PID_BASE}*.pid ; do
+		pid=$(cat "$pidf" 2>/dev/null)
+		if [ -n "$pid" ] ; then
+			kill -9 $pid 2>/dev/null
+		fi
+	done
+
 }
 
 case "$1" in
