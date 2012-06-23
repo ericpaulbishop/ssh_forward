@@ -16,6 +16,7 @@ PID_BASE=/var/run/ssh_forward
 CONF_DIR=/etc/ssh_forward
 BIN=/usr/bin/autossh
 
+env
 
 do_start()
 {
@@ -33,19 +34,33 @@ do_start()
 		is_d=$( echo "$line" | egrep "^[Dd]")
 		pid_file="${PID_BASE}_${pidnum}.pid"
 		
-		cmd=""
-		if [ -n "$is_l" ] ; then
-			cmd=$( echo "$line" | awk ' { if ( NF >4 ) { print " -L "$4":"$3"@"$2":"$5" 127.0.0.1"   } else { print " -L "$4":"$3"@"$2":"$4" 127.0.0.1"  } ; } ' )
-		elif [ -n "$is_r" ] ; then
-			cmd=$( echo "$line" | awk ' { if ( NF >4 ) { print " -R "$5":127.0.0.1:"$4" "$3"@"$2   } else { print " -R "$4":127.0.0.1:"$4" "$3"@"$2   } ; } ' )
-		elif [ -n "$is_d" ] ; then
-			cmd=$( echo "$line" | awk ' { print " -D "$4" "$3"@"$2  ; } ' ) 
-		fi
+		remote_host=$( echo "$line" | awk ' { print $2 } ')
+		remote_user=$( echo "$line" | awk ' { print $3 } ')
+		local_port=$(  echo "$line" | awk ' { print $4 } ')
+		remote_port=$( echo "$line" | awk '  { if ( NF >4 ) {  print $5 } else { print $4 } ; } ')
 
-		if [ -n "$cmd" ] ; then
-			echo "AUTOSSH_PIDFILE=\"$pid_file\"" "$BIN" -f -N -2 -o StrictHostKeyChecking=no -o PubkeyAuthentication=yes -o BatchMode=yes "$cmd"
+		if [ -n "${is_l}${is_r}${is_d}" ] ; then
 
-			AUTOSSH_PIDFILE="$pid_file" $BIN -f -N -2 -o StrictHostKeyChecking=no -o PubkeyAuthentication=yes -o BatchMode=yes -o IdentityFile="/root/.ssh/id_rsa" $cmd
+			AUTOSSH_PIDFILE="$pid_file"
+			#AUTOSSH_GATETIME=0
+			#AUTOSSH_FIRST_POLL=10
+        		#AUTOSSH_POLL=60
+
+			export AUTOSSH_PIDFILE
+			#export AUTOSSH_GATETIME
+			#export AUTOSSH_FIRST_POLL
+        		#export AUTOSSH_POLL
+
+
+
+			if   [ -n "$is_l" ] ; then
+				$BIN -f -N -2 -o StrictHostKeyChecking=no -o PubkeyAuthentication=yes -o BatchMode=yes  -L ${local_port}:${remote_host}:${remote_port} -i /root/.ssh/id_rsa 127.0.0.1
+			elif [ -n "$is_r" ] ; then
+				$BIN -f -N -2 -o StrictHostKeyChecking=no -o PubkeyAuthentication=yes -o BatchMode=yes  -R ${remote_port}:127.0.0.1:${local_port} -i /root/.ssh/id_rsa ${remote_user}@${remote_host}
+			elif [ -n "$is_d" ] ; then
+				$BIN -f -N -2 -o StrictHostKeyChecking=no -o PubkeyAuthentication=yes -o BatchMode=yes  -D $local_port -i /root/.ssh/id_rsa ${remote_user}@${remote_host}
+			fi
+			
 			pidnum=$(( $pidnum + 1 ))
 		fi
 
