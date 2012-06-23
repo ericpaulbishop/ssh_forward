@@ -11,11 +11,10 @@
 # Description: ssh_forward
 ### END INIT INFO
 
-
+NAME=ssh_forward
 PID_BASE=/var/run/ssh_forward
 CONF_DIR=/etc/ssh_forward
 
-#ssh -o StrictHostKeyChecking=no -o PubkeyAuthentication=yes -o BatchMode=yes
 
 do_start()
 {
@@ -25,25 +24,27 @@ do_start()
 	IFS_LINEBREAK="$(printf '\n\r')"
 	IFS="$IFS_LINEBREAK"
 
-	config_lines=$(cat "$CONF_DIR"/*.conf 2>/dev/null | sed 's/^[\t ]*//g'| sed 's/#.*$//g' | egrep "^[FRDfrd]"  |  awk '{ if ( NF >= 4 ) { print $0  }  }')
+	config_lines=$(cat "$CONF_DIR"/*.conf 2>/dev/null | sed 's/^[\t ]*//g'| sed 's/#.*$//g' | egrep "^[LRDlrd]"  |  awk '{ if ( NF >= 4 ) { print $0  }  }')
+	pidnum="1"
 	for line in $config_lines ; do
-		is_f=$( echo "$line" | egrep "^[Ff]")
+		is_l=$( echo "$line" | egrep "^[Ll]")
 		is_r=$( echo "$line" | egrep "^[Rr]")
 		is_d=$( echo "$line" | egrep "^[Dd]")
-		remote_port=$( echo "$line" | awk ' { if ( NF >4 ) { print $5 } else { print $4 } ; } ' )
-
-		if [ -n "$is_f" ] ; then
-
-			cmd=$( echo "$line" | awk ' { if ( NF >4 ) { print  $5   } else { print $4 } ; } ' )
-			
-
-
-		elif [ -n "$is_r" ] ; then
-
-		elif [ -n "$is_d" ] ; then
+		pid_file="$PID_BASE_${pidnum}.pid"
 		
+		cmd=""
+		if [ -n "$is_l" ] ; then
+			cmd=$( echo "$line" | awk ' { if ( NF >4 ) { print "AUTOSSH_PIDFILE=\"$pid_file\" autossh -f -2 -A -o StrictHostKeyChecking=no -o PubkeyAuthentication=yes -o BatchMode=yes -L "$4":"$3"@"$2":"$5" 127.0.0.1"   } else { print "AUTOSSH_PIDFILE="$pid_file" autossh -f -2 -A -o StrictHostKeyChecking=no -o PubkeyAuthentication=yes -o BatchMode=yes -L "$4":"$3"@"$2":"$4" 127.0.0.1"  } ; } ' )
+		elif [ -n "$is_r" ] ; then
+			cmd=$( echo "$line" | awk ' { if ( NF >4 ) { print "AUTOSSH_PIDFILE=\"$pid_file\" autossh -f -2 -A -o StrictHostKeyChecking=no -o PubkeyAuthentication=yes -o BatchMode=yes -R "$5":127.0.0.1:"$4" "$3"@"$2   } else { print "AUTOSSH_PIDFILE="$pid_file" autossh -f -2 -A -o StrictHostKeyChecking=no -o PubkeyAuthentication=yes -o BatchMode=yes -R "$4":127.0.0.1:"$4" "$3"@"$2   } ; } ' )
+		elif [ -n "$is_d" ] ; then
+			cmd=$( echo "$line" | awk ' { print "AUTOSSH_PIDFILE=\"$pid_file\" autossh -f -2 -A -o StrictHostKeyChecking=no -o PubkeyAuthentication=yes -o BatchMode=yes -D "$4" "$3"@"$2   } 
 		fi
 
+		if [ -n "$cmd" ] ; then
+			$cmd
+			pidnum=$(( $pidnum + 1 ))
+		fi
 
 	done
 
@@ -62,4 +63,22 @@ do_stop()
 	done
 }
 
+case "$1" in
+  start)
+  	do_start
+	;;
+  stop)
+	do_stop
+  	;;
+  restart)
+	do_start
+	;;
+  *)
+	N=/etc/init.d/$NAME
+	echo "Usage: $N {start|stop|restart}" >&2
+	exit 1
+	;;
+esac
+
+exit 0
 
