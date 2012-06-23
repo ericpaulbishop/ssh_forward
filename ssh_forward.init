@@ -25,11 +25,25 @@ do_start()
 	IFS_LINEBREAK="$(printf '\n\r')"
 	IFS="$IFS_LINEBREAK"
 
-	config_lines=$(cat "$CONF_DIR"/*.conf 2>/dev/null | sed 's/^[\t ]*//g'| sed 's/#.*$//g' | egrep "^[DRFdrf]"  |  awk '{ if ( NF >= 4 ) { print $0  }  }')
+	config_lines=$(cat "$CONF_DIR"/*.conf 2>/dev/null | sed 's/^[\t ]*//g'| sed 's/#.*$//g' | egrep "^[FRDfrd]"  |  awk '{ if ( NF >= 4 ) { print $0  }  }')
 	for line in $config_lines ; do
+		is_f=$( echo "$line" | egrep "^[Ff]")
+		is_r=$( echo "$line" | egrep "^[Rr]")
 		is_d=$( echo "$line" | egrep "^[Dd]")
-		is_r=$( echo "$line" | egrep "^[Ff]")
-		is_f=$( echo "$line" | egrep "^[Rr]")
+		remote_port=$( echo "$line" | awk ' { if ( NF >4 ) { print $5 } else { print $4 } ; } ' )
+
+		if [ -n "$is_f" ] ; then
+
+			cmd=$( echo "$line" | awk ' { if ( NF >4 ) { print  $5   } else { print $4 } ; } ' )
+			
+
+
+		elif [ -n "$is_r" ] ; then
+
+		elif [ -n "$is_d" ] ; then
+		
+		fi
+
 
 	done
 
@@ -40,7 +54,7 @@ do_start()
 
 do_stop()
 {
-	for pidf in ${PID_BASE}* ; do
+	for pidf in ${PID_BASE}*.pid ; do
 		pid=$(cat "$pidf" 2>/dev/null)
 		if [ -n "$pid" ] ; then
 			kill $pid
