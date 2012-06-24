@@ -16,8 +16,6 @@ PID_BASE=/var/run/ssh_forward
 CONF_DIR=/etc/ssh_forward
 BIN=/usr/bin/autossh
 
-env
-
 do_start()
 {
 	do_stop
